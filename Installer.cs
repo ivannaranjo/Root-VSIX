@@ -6,6 +6,7 @@ using Microsoft.VisualStudio.ExtensionManager;
 using Microsoft.VisualStudio.Settings;
 using Microsoft.Win32;
 using System.Globalization;
+using Microsoft.Extensions.CommandLineUtils;
 
 namespace VsixInstaller
 {
@@ -13,56 +14,56 @@ namespace VsixInstaller
     {
         static int Main(string[] args)
         {
-            if (args.Length != 2 && args.Length != 3)
+            var app = new CommandLineApplication { Name = "VsixInstaller" };
+            app.HelpOption("-?|-h|--help");
+
+            var vsixPath = app.Option(
+                "-f|--vsix",
+                "The path to the vsix to install",
+                CommandOptionType.SingleValue);
+            var version = app.Option(
+                "-v|--version",
+                "The version of VS to install to.",
+                CommandOptionType.SingleValue);
+
+            app.OnExecute(() =>
             {
-                PrintUsage();
-                return 1;
-            }
+                if (!vsixPath.HasValue())
+                {
+                    Console.Error.WriteLine("Need to specify the --vsix parameter.");
+                    return 1;
+                }
+                if (!File.Exists(vsixPath.Value()))
+                {
+                    Console.Error.Write($"Cannot find the vsix at {vsixPath.Value()}");
+                    return 1;
+                }
 
-            string version;
-            if (args.Length == 3)
-            {
-                version = args[0];
-                args = args.Skip(1).ToArray();
-            }
-            else
-            {
-                version = FindVsVersions().LastOrDefault().ToString();
-                if (string.IsNullOrEmpty(version))
-                    return PrintError("Cannot find any installed copies of Visual Studio.");
-            }
+                var versionValue = version.HasValue() ? version.Value() : "14.0";
+                var vsExe = GetVersionExe(versionValue);
+                if (string.IsNullOrEmpty(vsExe))
+                {
+                    Console.Error.WriteLine("Cannot find Visual Studio " + version);
+                    return 1;
+                }
 
-            string vsExe = GetVersionExe(version);
-            if (string.IsNullOrEmpty(vsExe) && version.All(char.IsNumber))
-            {
-                version += ".0";
-                vsExe = GetVersionExe(version);
-            }
+                var vsixPackage = ExtensionManagerService.CreateInstallableExtension(vsixPath.Value());
+                Console.Error.WriteLine($"Installing {vsixPackage.Header.Name} version {vsixPackage.Header.Version}");
 
-            if (string.IsNullOrEmpty(vsExe))
-            {
-                Console.Error.WriteLine("Cannot find Visual Studio " + version);
-                PrintVsVersions();
-                return 1;
-            }
+                try
+                {
+                    Install(vsExe, vsixPackage, versionValue);
+                }
+                catch (Exception ex)
+                {
+                    Console.Error.WriteLine($"Failed to install extension: {ex.Message}");
+                    return 1;
+                }
 
-            if (!File.Exists(args[1]))
-                return PrintError("Cannot find VSIX file " + args[1]);
+                return 0;
+            });
 
-            var vsix = ExtensionManagerService.CreateInstallableExtension(args[1]);
-
-            Console.WriteLine("Installing " + vsix.Header.Name + " version " + vsix.Header.Version + " to Visual Studio " + version + " /RootSuffix " + args[0]);
-
-            try
-            {
-                Install(vsExe, vsix, args[0]);
-            }
-            catch (Exception ex)
-            {
-                return PrintError("Error: " + ex.Message);
-            }
-
-            return 0;
+            return app.Execute(args);
         }
 
         public static IEnumerable<decimal?> FindVsVersions()
@@ -102,34 +103,5 @@ namespace VsixInstaller
                 ems.Install(vsix, perMachine: false);
             }
         }
-
-        #region Output Messages
-        private static int PrintError(string message)
-        {
-            Console.Error.WriteLine(message);
-            return 1;
-        }
-        private static void PrintUsage()
-        {
-            Console.Error.WriteLine(typeof(Installer).Assembly.GetName().Name);
-            Console.Error.WriteLine("Installs local VSIX extensions to custom Visual Studio RootSuffixes");
-            Console.Error.WriteLine();
-            Console.Error.WriteLine("Usage:");
-            Console.Error.WriteLine();
-            Console.Error.WriteLine("  " + typeof(Installer).Assembly.GetName().Name + " [<VS version>] <RootSuffix> <Path to VSIX>");
-            Console.Error.WriteLine();
-            Console.Error.WriteLine("The Visual Studio version must be specified as the internal version number (12.0 is 2013).");
-            Console.Error.WriteLine("If omitted, the extension will be installed to the latest version of Visual Studio installed on the computer.");
-        }
-        private static void PrintVsVersions()
-        {
-            Console.Error.WriteLine("Detected versions:");
-            Console.Error.WriteLine(string.Join(
-                Environment.NewLine,
-                FindVsVersions()
-                    .Where(v => !string.IsNullOrEmpty(GetVersionExe(v.ToString())))
-            ));
-        }
-        #endregion
     }
 }
