@@ -7,7 +7,7 @@ using Microsoft.VisualStudio.Settings;
 using Microsoft.Win32;
 using System.Globalization;
 
-namespace Root_VSIX
+namespace VsixInstaller
 {
     public static class Installer
     {
@@ -84,7 +84,7 @@ namespace Root_VSIX
 
         public static string GetVersionExe(string version)
         {
-            return Registry.GetValue(@"HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\VisualStudio\" + version + @"\Setup\VS", "EnvironmentPath", null) as string;
+            return Registry.GetValue($@"HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\VisualStudio\{version}\Setup\VS", "EnvironmentPath", null) as string;
         }
 
         public static void Install(string vsExe, IInstallableExtension vsix, string rootSuffix)

@@ -119,12 +119,6 @@
     <Reference Include="System" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="Shell.Interop\Shell.Interop.csproj">
-      <Project>{2ae4160d-f51a-4374-9f40-ecee109d0f0d}</Project>
-      <Name>Shell.Interop</Name>
-    </ProjectReference>
-  </ItemGroup>
-  <ItemGroup>
     <None Include="packages.config" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
