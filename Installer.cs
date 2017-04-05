@@ -92,6 +92,13 @@ namespace Root_VSIX
             using (var esm = ExternalSettingsManager.CreateForApplication(vsExe, rootSuffix))
             {
                 var ems = new ExtensionManagerService(esm);
+                IInstalledExtension installedVsix = null;
+                if (ems.TryGetInstalledExtension(vsix.Header.Identifier, out installedVsix))
+                {
+                    Console.WriteLine($"Extension {vsix.Header.Name} version {vsix.Header.Version} already installed, unistalling first.");
+                    ems.Uninstall(installedVsix);
+                }
+
                 ems.Install(vsix, perMachine: false);
             }
         }
